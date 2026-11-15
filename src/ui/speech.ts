@@ -7,6 +7,7 @@ import { engine } from "../audio/AudioEngine.ts";
 import type { Gesture } from "../wasm/types.ts";
 import { ipaPhraseTexts } from "./skipped.ts";
 import { wordSpans, type WordSpan } from "./words.ts";
+import { accentFor } from "./voicePresets.ts";
 
 export const g2p = new EnglishG2P();
 
@@ -49,7 +50,7 @@ export function transcribe(phrases: { segments: Segment[]; intonation?: string }
 }
 
 export function speakPhrases(phrases: { segments: Segment[]; intonation?: "statement" | "question" | "flat"; pause?: number; words?: string[] }[], o: { body: BodyMix; rate: number; f0: number }): SpokenPlan {
-  const plan = planPhrases(phrases, { body: o.body, t0: 0, rate: o.rate, f0: o.f0 });
+  const plan = planPhrases(phrases, { body: o.body, t0: 0, rate: o.rate, f0: o.f0, accent: accentFor(o.body) });
   const id = engine.schedule({ gestures: plan.gestures.map((g: Gesture) => ({ ...g, targets: { ...g.targets } })), segments: plan.segments, end: plan.end });
   current = { plan, offset: null, id, transcription: transcribe(phrases), words: wordSpans(phrases, plan) };
   for (const l of listeners) l(current);

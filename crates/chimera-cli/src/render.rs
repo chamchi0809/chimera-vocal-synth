@@ -24,7 +24,9 @@ use chimera::phonetics::sing::{
 use chimera::phonetics::songs::DEMO_SONGS;
 use chimera::phonetics::syllables::lyrics_to_syllables;
 use chimera::phonetics::{Intonation, Plan, Syllable};
+use chimera::anatomy::human::HumanBody;
 use chimera::voice::human_voice::{HumanVoice, SCOPE_POINTS, SourcePatch, VoiceTelemetry};
+use chimera::voice::preset::voice_preset;
 use std::io::Read;
 use std::time::Instant;
 
@@ -87,19 +89,44 @@ fn mark_line(marks: &[(f64, String)]) -> String {
         .join(" ")
 }
 
-/// IPA utterances through the planner. `render speech <out> ["ˈɑpɑ / ˈɑbɑ"] [body]`
+/// Who speaks a speech render: a body preset at the given f0, or a voice preset (`anime`) with
+/// its own body, source and accent.
+struct Speaker {
+    body: HumanBody,
+    mix: BodyMix,
+    source: SourcePatch,
+    f0: f64,
+    accent: Option<f64>,
+}
+
+fn speaker(name: &str, f0: f64) -> Result<Speaker, String> {
+    if let Some(p) = voice_preset(name) {
+        return Ok(Speaker {
+            body: p.body.body(),
+            mix: p.body,
+            source: p.source,
+            f0: p.source.f0.unwrap_or(f0),
+            accent: Some(p.accent),
+        });
+    }
+    Ok(Speaker { body: body(name)?, mix: name.into(), source: SourcePatch::f0(f0), f0, accent: None })
+}
+
+/// IPA utterances through the planner. `render speech <out> ["ˈɑpɑ / ˈɑbɑ"] [body|anime]`
 pub fn speech(ctx: &Ctx, a: &[String]) -> Result<(), String> {
     let name = arg(a, 0, "out/speech");
     let text = arg(a, 1, "ˈɑpɑ");
     let body_name = arg(a, 2, "male");
-    let b = body(body_name)?;
-    let f0 = match body_name {
-        "female" => 200.0,
-        "child" => 250.0,
-        _ => 110.0,
-    };
-    let mut voice = HumanVoice::new(FS, b, 2);
-    voice.set_source(&SourcePatch::f0(f0));
+    let sp = speaker(
+        body_name,
+        match body_name {
+            "female" => 200.0,
+            "child" => 250.0,
+            _ => 110.0,
+        },
+    )?;
+    let mut voice = HumanVoice::new(FS, sp.body, 2);
+    voice.set_source(&sp.source);
     let mut marks: Vec<(f64, String)> = Vec::new();
     let mut t0 = 0.05;
     // what the engine will not say as typed, one warning line per kind on stderr (the render is unchanged)
@@ -112,9 +139,10 @@ pub fn speech(ctx: &Ctx, a: &[String]) -> Result<(), String> {
         let plan = plan_utterance(
             &segs,
             &PlanOptions {
-                body: body_name.into(),
+                body: sp.mix,
                 t0,
-                f0: Some(f0),
+                f0: Some(sp.f0),
+                accent: sp.accent,
                 ..Default::default()
             },
         );
@@ -158,8 +186,7 @@ pub fn text_f0(body_name: &str) -> f64 {
 /// Say `text` the way `render text` does: CMUdict G2P, the phrase planner from t0 = 50 ms, the
 /// body's speaking f0, 300 ms of tail. `chimera compare tsp` measures exactly these renders.
 pub fn say(g: &EnglishG2P, text: &str, body_name: &str) -> Result<Spoken, String> {
-    let b = body(body_name)?;
-    let f0 = text_f0(body_name);
+    let sp = speaker(body_name, text_f0(body_name))?;
     let phrases = g.to_phrases(text);
     let shown: Vec<String> = phrases
         .iter()
@@ -176,8 +203,8 @@ pub fn say(g: &EnglishG2P, text: &str, body_name: &str) -> Result<Spoken, String
             }
         })
         .collect();
-    let mut voice = HumanVoice::new(FS, b, 2);
-    voice.set_source(&SourcePatch::f0(f0));
+    let mut voice = HumanVoice::new(FS, sp.body, 2);
+    voice.set_source(&sp.source);
     let inputs: Vec<PhraseInput> = phrases
         .iter()
         .map(|p| PhraseInput {
@@ -189,9 +216,10 @@ pub fn say(g: &EnglishG2P, text: &str, body_name: &str) -> Result<Spoken, String
     let plan = plan_phrases(
         &inputs,
         &PlanOptions {
-            body: body_name.into(),
+            body: sp.mix,
             t0: 0.05,
-            f0: Some(f0),
+            f0: Some(sp.f0),
+            accent: sp.accent,
             ..Default::default()
         },
     );
@@ -202,7 +230,7 @@ pub fn say(g: &EnglishG2P, text: &str, body_name: &str) -> Result<Spoken, String
     Ok(Spoken { out, plan, shown: shown.join(" | ") })
 }
 
-/// English text through G2P and the phrase planner. `render text <out> ["Text."] [body]`
+/// English text through G2P and the phrase planner. `render text <out> ["Text."] [body|anime]`
 pub fn text(ctx: &Ctx, a: &[String]) -> Result<(), String> {
     let name = arg(a, 0, "out/text");
     let text = arg(a, 1, "Hello world.");

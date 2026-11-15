@@ -33,6 +33,7 @@ pub mod control {
 pub mod voice {
     pub mod human_airway;
     pub mod human_voice;
+    pub mod preset;
 }
 
 pub mod analysis {

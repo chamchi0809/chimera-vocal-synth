@@ -19,7 +19,9 @@ import { SingRight, singInfo, singWords } from "./components/SingPanel.tsx";
 import type { Mode } from "./store.ts";
 import type { BodyName } from "../worklet/protocol.ts";
 import { BodyPad } from "./components/BodyPad.tsx";
-import { presetOf, PRESETS } from "./body.ts";
+import { defaultF0, presetOf, PRESETS } from "./body.ts";
+import { ANIME, isAnime } from "./voicePresets.ts";
+import { DEFAULT_SOURCE } from "../wasm/engine.ts";
 
 // three.js only loads when the 3D view is first shown
 const AnatomyView3D = lazy(() => import("./components/AnatomyView3D.tsx").then((m) => ({ default: m.AnatomyView3D })));
@@ -99,20 +101,33 @@ function ViewToggles() {
   );
 }
 
-/** The body, in the head's header: three presets and the triangle between them. */
+/** The body, in the head's header: three presets, the anime voice, and the triangle between. */
 function BodyControl() {
   const body = useStore((s) => s.body);
   const setBody = useStore((s) => s.setBody);
+  const setSource = useStore((s) => s.setSource);
+  const choose = (b: BodyName | "anime") => {
+    if (b === "anime") {
+      setBody(ANIME.body);
+      setSource(ANIME.source);
+      return;
+    }
+    // leaving the anime voice takes its source settings with it
+    const wasAnime = isAnime(useStore.getState().body);
+    setBody(PRESETS[b]);
+    if (wasAnime) setSource({ ...DEFAULT_SOURCE, f0: defaultF0(PRESETS[b]) });
+  };
   return (
     <div className="body-control">
-      <Segmented<BodyName>
+      <Segmented<BodyName | "anime">
         label="Body"
-        value={presetOf(body)}
-        onChange={(b) => setBody(PRESETS[b])}
+        value={isAnime(body) ? "anime" : presetOf(body)}
+        onChange={choose}
         options={[
           { value: "male", label: "Male" },
           { value: "female", label: "Female" },
           { value: "child", label: "Child" },
+          { value: "anime", label: "Anime" },
         ]}
       />
       <BodyPad />
