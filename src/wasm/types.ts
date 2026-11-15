@@ -51,6 +51,8 @@ export interface HumanArtic {
 export interface BodyMix {
   female: number;
   child: number;
+  /** the tract's length relative to that blend (absent = 1) */
+  size?: number;
 }
 
 export interface HumanBody {

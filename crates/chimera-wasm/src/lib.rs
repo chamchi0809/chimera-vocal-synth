@@ -267,15 +267,16 @@ pub unsafe extern "C" fn engine_set_gate(h: *mut Handle, level: f64) {
     handle!(h).engine.set_gate(level);
 }
 
-/// Switch body: `female` 0 (male) … 1 (female), `child` 0 (adult) … 1 (child); see `BodyMix`.
+/// Switch body: `female` 0 (male) … 1 (female), `child` 0 (adult) … 1 (child), `size` the tract's
+/// length relative to that blend (1 = its own); see `BodyMix`.
 /// Allocates. The new voice's node counts can be read with `engine_n_ph`/`engine_n_or`.
 ///
 /// # Safety
 /// `h` must be a live handle.
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn engine_set_body(h: *mut Handle, female: f64, child: f64) {
+pub unsafe extern "C" fn engine_set_body(h: *mut Handle, female: f64, child: f64, size: f64) {
     let h = handle!(h);
-    h.engine.set_body(BodyMix::new(female, child));
+    h.engine.set_body(BodyMix::new(female, child).sized(size));
     h.engine.telemetry(&mut h.tele); // resize the telemetry buffers for the new voice
 }
 

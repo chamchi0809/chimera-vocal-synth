@@ -27,7 +27,7 @@ fn presets_are_exact_and_weights_sum_to_one() {
             assert!((w - 1.0).abs() < 1e-12);
         }
     }
-    assert_eq!(BodyMix::new(f64::NAN, 3.0), BodyMix { female: 0.0, child: 1.0 });
+    assert_eq!(BodyMix::new(f64::NAN, 3.0), BodyMix::CHILD);
 }
 
 #[test]
@@ -35,7 +35,21 @@ fn deserializes_from_a_name_or_a_mix() {
     let o: PlanOptions = serde_json::from_str(r#"{"body":"female","t0":0}"#).unwrap();
     assert_eq!(o.body, BodyMix::FEMALE);
     let o: PlanOptions = serde_json::from_str(r#"{"body":{"female":0.25,"child":0.5},"t0":0}"#).unwrap();
-    assert_eq!(o.body, BodyMix { female: 0.25, child: 0.5 });
+    assert_eq!(o.body, BodyMix::new(0.25, 0.5));
+    let o: PlanOptions = serde_json::from_str(r#"{"body":{"child":1,"size":0.94},"t0":0}"#).unwrap();
+    assert_eq!(o.body, BodyMix::CHILD.sized(0.94));
+}
+
+#[test]
+fn size_scales_the_tract_and_keeps_the_targets() {
+    let small = BodyMix::CHILD.sized(0.94);
+    assert!((small.body().scale - 0.94 * BODY_CHILD.scale).abs() < 1e-12);
+    assert!((small.body().pharynx - 0.94 * BODY_CHILD.pharynx).abs() < 1e-12);
+    assert_eq!(vowel_artic("i", small), vowel_artic("i", BodyMix::CHILD));
+    assert_eq!(BodyMix::CHILD.sized(0.1).size, BodyMix::SIZE_RANGE.0);
+    assert_eq!(BodyMix::CHILD.sized(f64::NAN), BodyMix::CHILD);
+    // the engine keeps the size it was given
+    assert_eq!(Engine::new(48000.0).set_body(small).body, small);
 }
 
 #[test]

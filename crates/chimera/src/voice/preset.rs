@@ -13,25 +13,25 @@ pub struct VoicePreset {
     pub accent: f64,
 }
 
-/// An anime heroine: a body between the adult female and the child (a short tract with the
-/// female's proportions), pitched above both, soft and breathy at the folds but bright, with a
-/// wide, sing-song intonation.
+/// An anime heroine: the child's articulation in a tract smaller still, so the formants sit as high
+/// above the female's as the pitch does (raising the pitch alone sounds like a man sped up), a soft
+/// closure that keeps the buzz out, and a wide, sing-song intonation.
 pub const ANIME: VoicePreset = VoicePreset {
     name: "anime",
-    body: BodyMix { female: 1.0, child: 0.6 },
+    body: BodyMix { female: 0.0, child: 1.0, size: 0.94 },
     source: SourcePatch {
-        f0: Some(320.0),
+        f0: Some(330.0),
         glide: Some(0.045),
         pressure: Some(8.5),
         breathiness: Some(0.3),
-        tension: Some(0.4),
+        tension: Some(0.35),
         fry: Some(0.0),
         roughness: Some(0.03),
         vibrato_depth: Some(0.0),
         vibrato_rate: Some(6.0),
         drift: Some(3.0),
         voiced: Some(true),
-        brightness: Some(0.5),
+        brightness: Some(0.3),
     },
     accent: 0.3,
 };

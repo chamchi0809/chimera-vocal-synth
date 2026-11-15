@@ -31,7 +31,7 @@ function render(x: Exports, s: { body: string; fsOut: number; samples: number; o
   const fn = (name: string) => x[name] as F;
   const h = fn("engine_new")(s.fsOut);
   const [female, child] = { male: [0, 0], female: [1, 0], child: [0, 1] }[s.body] ?? [0, 0];
-  if (female || child) fn("engine_set_body")(h, female, child);
+  if (female || child) fn("engine_set_body")(h, female, child, 1);
   const out = new Float32Array(s.samples);
   const ops = [...s.ops].sort((a, b) => a.at - b.at);
   let i = 0, oi = 0;

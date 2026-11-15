@@ -87,7 +87,7 @@ impl Engine {
     /// new body's default), posture, breath. Allocates (a new airway network).
     pub fn set_body(&mut self, body: impl Into<BodyMix>) -> VoiceInfo {
         let body: BodyMix = body.into();
-        let body = BodyMix::new(body.female, body.child);
+        let body = body.sized(body.size);
         let prev = core::mem::replace(&mut self.voice, Self::make_voice(self.sample_rate, body));
         self.body = body;
         let mut src = SourcePatch::from_source(&prev.source);

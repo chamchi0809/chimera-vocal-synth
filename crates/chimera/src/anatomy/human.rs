@@ -315,29 +315,50 @@ impl BodyName {
 /// the adult female (1), `child` from adult (0) to child (1). The child has no female axis, so
 /// the weights are male (1−c)(1−f), female (1−c)·f, child c. Everything body-dependent (the
 /// anatomy, the calibrated phoneme targets, the default pitch) blends with these weights; at a
-/// preset it is exactly that preset.
+/// preset it is exactly that preset. `size` then scales the tract's length (and so every formant)
+/// without touching the calibrated targets: 0.94 is a body smaller than the child's.
 ///
-/// Deserializes from a preset name (`"female"`) or `{ "female": f, "child": c }`.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Serialize)]
+/// Deserializes from a preset name (`"female"`) or `{ "female": f, "child": c, "size"?: s }`.
+#[derive(Clone, Copy, Debug, PartialEq, Serialize)]
 pub struct BodyMix {
     pub female: f64,
     pub child: f64,
+    #[serde(skip_serializing_if = "is_unit")]
+    pub size: f64,
+}
+
+fn is_unit(x: &f64) -> bool {
+    *x == 1.0
+}
+
+impl Default for BodyMix {
+    fn default() -> BodyMix {
+        BodyMix::MALE
+    }
 }
 
 impl BodyMix {
-    pub const MALE: BodyMix = BodyMix { female: 0.0, child: 0.0 };
-    pub const FEMALE: BodyMix = BodyMix { female: 1.0, child: 0.0 };
-    pub const CHILD: BodyMix = BodyMix { female: 0.0, child: 1.0 };
+    pub const MALE: BodyMix = BodyMix { female: 0.0, child: 0.0, size: 1.0 };
+    pub const FEMALE: BodyMix = BodyMix { female: 1.0, child: 0.0, size: 1.0 };
+    pub const CHILD: BodyMix = BodyMix { female: 0.0, child: 1.0, size: 1.0 };
+    /// the range of `size`: past it the calibrated targets stop fitting the tract
+    pub const SIZE_RANGE: (f64, f64) = (0.8, 1.2);
 
-    /// Clamped to 0..1 (non-finite values count as 0).
+    /// Clamped to 0..1 (non-finite values count as 0), at its own size.
     pub fn new(female: f64, child: f64) -> BodyMix {
         let c = |x: f64| if x.is_finite() { clamp(x, 0.0, 1.0) } else { 0.0 };
-        BodyMix { female: c(female), child: c(child) }
+        BodyMix { female: c(female), child: c(child), size: 1.0 }
+    }
+
+    /// This blend with its tract scaled by `size` (clamped to `SIZE_RANGE`; non-finite counts as 1).
+    pub fn sized(self, size: f64) -> BodyMix {
+        let size = if size.is_finite() { clamp(size, Self::SIZE_RANGE.0, Self::SIZE_RANGE.1) } else { 1.0 };
+        BodyMix { size, ..BodyMix::new(self.female, self.child) }
     }
 
     /// Weights of male, female and child (they sum to 1).
     pub fn weights(self) -> [(BodyName, f64); 3] {
-        let BodyMix { female: f, child: c } = BodyMix::new(self.female, self.child);
+        let BodyMix { female: f, child: c, .. } = BodyMix::new(self.female, self.child);
         [(BodyName::Male, (1.0 - c) * (1.0 - f)), (BodyName::Female, (1.0 - c) * f), (BodyName::Child, c)]
     }
 
@@ -366,18 +387,23 @@ impl BodyMix {
         self.weights().iter().fold(0.0, |acc, (b, w)| acc + w * f(*b))
     }
 
-    /// The blended anatomy (named after the nearest preset).
+    /// The blended anatomy (named after the nearest preset), at its size.
     pub fn body(self) -> HumanBody {
-        if let Some(b) = self.preset() {
-            return b.body();
+        let mut body = match self.preset() {
+            Some(b) => b.body(),
+            None => HumanBody {
+                name: self.nearest().body().name,
+                scale: self.blend(|b| b.body().scale),
+                pharynx: self.blend(|b| b.body().pharynx),
+                tongue_radius: self.blend(|b| b.body().tongue_radius),
+                lip_width: self.blend(|b| b.body().lip_width),
+            },
+        };
+        if self.size != 1.0 {
+            body.scale *= self.size;
+            body.pharynx *= self.size;
         }
-        HumanBody {
-            name: self.nearest().body().name,
-            scale: self.blend(|b| b.body().scale),
-            pharynx: self.blend(|b| b.body().pharynx),
-            tongue_radius: self.blend(|b| b.body().tongue_radius),
-            lip_width: self.blend(|b| b.body().lip_width),
-        }
+        body
     }
 }
 
@@ -408,11 +434,12 @@ impl<'de> Deserialize<'de> for BodyMix {
                 female: f64,
                 #[serde(default)]
                 child: f64,
+                size: Option<f64>,
             },
         }
         Ok(match Wire::deserialize(d)? {
             Wire::Name(s) => BodyMix::from(s.as_str()),
-            Wire::Mix { female, child } => BodyMix::new(female, child),
+            Wire::Mix { female, child, size } => BodyMix::new(female, child).sized(size.unwrap_or(1.0)),
         })
     }
 }

@@ -13,8 +13,8 @@ export interface VoicePreset {
 }
 
 export const ANIME: VoicePreset = {
-  body: { female: 1, child: 0.6 },
-  source: { f0: 320, glide: 0.045, pressure: 8.5, breathiness: 0.3, tension: 0.4, fry: 0, roughness: 0.03, vibratoDepth: 0, vibratoRate: 6, drift: 3, voiced: true, brightness: 0.5 },
+  body: { female: 0, child: 1, size: 0.94 },
+  source: { f0: 330, glide: 0.045, pressure: 8.5, breathiness: 0.3, tension: 0.35, fry: 0, roughness: 0.03, vibratoDepth: 0, vibratoRate: 6, drift: 3, voiced: true, brightness: 0.3 },
   accent: 0.3,
 };
 

@@ -38,10 +38,10 @@ export function nearestBody(b: BodyMix): BodyName {
 }
 
 export function sameBody(a: BodyMix | null | undefined, b: BodyMix | null | undefined): boolean {
-  return !!a && !!b && a.female === b.female && a.child === b.child;
+  return !!a && !!b && a.female === b.female && a.child === b.child && (a.size ?? 1) === (b.size ?? 1);
 }
 
-export const bodyKey = (b: BodyMix) => `${b.female},${b.child}`;
+export const bodyKey = (b: BodyMix) => `${b.female},${b.child},${b.size ?? 1}`;
 
 /** A per-preset quantity blended by the body's weights (geometrically: pitches, frequencies). */
 export function blendLog(b: BodyMix, of: Record<BodyName, number>): number {
